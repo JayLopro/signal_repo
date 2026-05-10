@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="mb-8 rounded-2xl border border-brand-100 bg-brand-25 p-6">
+  <div class="flex items-start gap-4">
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white">
+      ✨
+    </div>
+    <div>
+      <h2 class="text-base font-semibold text-brand-900">배포 파이프라인 검증 중</h2>
+      <p class="mt-1 text-sm leading-relaxed text-brand-800">
+        본 화면은 PythonAnywhere 배포가 정상 작동하는지 확인하기 위한 1단계 산출물입니다.
+        다음 단계에서 7개 시계열 CSV 데이터를 활용한 카테고리별 시그널 카드와 Chart.js 차트가 추가됩니다.
+      </p>
+    </div>
+  </div>
+</div>
+
+<h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">카테고리 (Coming Soon)</h3>
+
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-2xl">🚶</span>
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Step 2+</span>
+    </div>
+    <div class="text-sm font-semibold text-gray-900">유동생활인구</div>
+    <div class="mt-1 text-xs text-gray-500">행정동별 월별 유동인구 추이</div>
+  </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-2xl">🔁</span>
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Step 2+</span>
+    </div>
+    <div class="text-sm font-semibold text-gray-900">생활이동</div>
+    <div class="mt-1 text-xs text-gray-500">출발지·도착지 기반 이동 패턴</div>
+  </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-2xl">🏪</span>
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Step 2+</span>
+    </div>
+    <div class="text-sm font-semibold text-gray-900">가맹점</div>
+    <div class="mt-1 text-xs text-gray-500">카드 가맹점 거래 시그널</div>
+  </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-2xl">🛒</span>
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Step 2+</span>
+    </div>
+    <div class="text-sm font-semibold text-gray-900">소비자</div>
+    <div class="mt-1 text-xs text-gray-500">카드 소비자 지출 시그널</div>
+  </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-2xl">🏢</span>
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Step 2+</span>
+    </div>
+    <div class="text-sm font-semibold text-gray-900">기업신용</div>
+    <div class="mt-1 text-xs text-gray-500">기업 신용 지표 동향</div>
+  </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-2xl">👤</span>
+      <span class="rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Step 2+</span>
+    </div>
+    <div class="text-sm font-semibold text-gray-900">개인신용</div>
+    <div class="mt-1 text-xs text-gray-500">개인 신용 지표 동향</div>
+  </div>
+
+</div>
+
+<div class="mt-8 rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
+  <span class="font-medium text-gray-700">로드맵 미리보기</span> ·
+  Step 2 → CSV 1종 + 라인차트 1개 ·
+  Step 3 → 7종 CSV 적재 ·
+  Step 4 → 시그널 산정 이식 ·
+  Step 5 → LLM 인사이트 ·
+  Step 6+ → BOK API
+</div>
+
+{% endblock %}

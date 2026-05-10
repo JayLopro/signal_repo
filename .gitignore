@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Project-local data (Step 1: keep CSV out of repo)
+data/csv/
+data/sqlite3/
+data/수원시_background.json
+data/sample/
+
+# Spec / planning artifacts
+.omc/
+.claude/
+
+# Reference docs (xls)
+API개발명세서_*.xls

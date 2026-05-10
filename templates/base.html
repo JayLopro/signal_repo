@@ -1,0 +1,126 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ page_title|default:"수원시 시그널 리포트" }}{% endblock %}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              25: '#f2f7ff', 50: '#ecf3ff', 100: '#dde9ff', 200: '#c2d6ff',
+              300: '#9cb9ff', 400: '#7592ff', 500: '#465fff', 600: '#3641f5',
+              700: '#2a31d8', 800: '#252dae', 900: '#262e89', 950: '#161950',
+            },
+          },
+          fontFamily: {
+            sans: ['Outfit', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+
+  <div class="flex min-h-screen">
+
+    <aside class="hidden lg:flex w-[260px] flex-col border-r border-gray-200 bg-white px-5 py-6">
+      <a href="{% url 'dashboard:index' %}" class="mb-8 flex items-center gap-2">
+        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-white font-bold">S</span>
+        <span class="text-lg font-semibold text-gray-900">Signal Report</span>
+      </a>
+
+      <nav class="flex-1">
+        <h3 class="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">MENU</h3>
+        <ul class="flex flex-col gap-1">
+          {% with active=active_menu %}
+          <li>
+            <a href="{% url 'dashboard:index' %}"
+               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium {% if active == 'dashboard' %}bg-brand-50 text-brand-700{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+              <span class="text-base">📊</span> 대시보드
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              <span class="text-base">🚶</span> 유동생활인구
+              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              <span class="text-base">🔁</span> 생활이동
+              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              <span class="text-base">🏪</span> 가맹점
+              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              <span class="text-base">🛒</span> 소비자
+              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              <span class="text-base">🏢</span> 기업신용
+              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+              <span class="text-base">👤</span> 개인신용
+              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            </a>
+          </li>
+          {% endwith %}
+        </ul>
+      </nav>
+
+      <div class="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-500">
+        <div class="font-semibold text-gray-700">Step 1 배포 검증판</div>
+        <div class="mt-1 leading-relaxed">데이터/차트/인사이트는 다음 단계에서 추가됩니다.</div>
+      </div>
+    </aside>
+
+    <div class="flex flex-1 flex-col">
+
+      <header class="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+        <div>
+          <div class="text-xs text-gray-500">경기도 · 수원시 (4111)</div>
+          <h1 class="text-lg font-semibold text-gray-900">{{ page_title|default:"수원시 시그널 리포트" }}</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">개선판 테스트</span>
+          <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">v0.1.0</span>
+        </div>
+      </header>
+
+      <main class="flex-1 px-6 py-8">
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="border-t border-gray-200 bg-white px-6 py-3 text-center text-xs text-gray-400">
+        © Suwon Signal Report · powered by Django + Tailwind + Chart.js (예정)
+      </footer>
+    </div>
+
+  </div>
+
+</body>
+</html>
