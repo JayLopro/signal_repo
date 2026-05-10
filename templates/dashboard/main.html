@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% load static dict_filters humanize %}
+
+{% block title %}메인 대시보드 · 수원시 시그널 리포트{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  .signal-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .5rem; border-radius:9999px; font-size:.7rem; font-weight:600; border:1px solid; }
+  .sig-strong_positive { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+  .sig-weak_positive   { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
+  .sig-no_change       { background:#f3f4f6; color:#4b5563; border-color:#d1d5db; }
+  .sig-weak_negative   { background:#ffedd5; color:#9a3412; border-color:#fed7aa; }
+  .sig-strong_negative { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+  .sig-insufficient    { background:#f3f4f6; color:#9ca3af; border:1px dashed #d1d5db; }
+  #choro-map { height: 360px; border-radius:.75rem; }
+  .leaflet-tooltip.signal-tooltip { background:#111827; color:#fff; border:none; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── 상단 컨트롤 바 (5개) — decisions.md §5-1 ── #}
+<form method="get" class="mb-6 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm" id="controls-form">
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">기준월</span>
+      <select name="crym" class="w-full rounded-lg border-gray-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+              onchange="this.form.submit()">
+        {% for opt in controls.options.crym %}
+          <option value="{{ opt.value }}" {% if opt.value == controls.current.crym %}selected{% endif %}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">분석모드</span>
+      <select name="mode" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.mode %}
+          <option value="{{ k }}" {% if k == controls.current.mode %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">신호체계</span>
+      <select name="system" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.system %}
+          <option value="{{ k }}" {% if k == controls.current.system %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">분포 윈도우</span>
+      <select name="window" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for opt in controls.options.window %}
+          <option value="{{ opt.value }}" {% if opt.value == controls.current.window %}selected{% endif %} {% if opt.disabled %}disabled{% endif %}>
+            {{ opt.label }}{% if opt.disabled %} (장기 모드 비활성){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-amber-600">LLM 모델 <span title="텍스트만 영향" class="cursor-help">ⓘ</span></span>
+      <select name="llm_model" class="w-full rounded-lg border-amber-300 bg-amber-50 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.llm_model %}
+          <option value="{{ k }}" {% if k == controls.current.llm_model %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+  {% if controls.window_disabled %}
+    <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+      ⚠ 장기 모드(12M-12M) + 12개월 윈도우 조합은 비활성화되어 있습니다 (decisions.md §4). 다른 윈도우를 선택하세요.
+    </div>
+  {% endif %}
+</form>
+
+{# ── Choropleth + 6축 레이더 ── #}
+<div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+
+  <div class="lg:col-span-2 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-gray-900">행정동별 시그널 강도 <span class="text-xs font-normal text-gray-500">· 6 카테고리 평균</span></h3>
+      <span class="text-[11px] text-gray-500">기준: {{ controls.current.crym|slice:":4" }}.{{ controls.current.crym|slice:"4:" }}</span>
+    </div>
+    <div id="choro-map" data-topojson-url="{% url 'dashboard:admdong_topojson' %}"></div>
+    <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+      <span class="inline-block h-3 w-6 rounded-sm" style="background:#b2182b"></span>강한 부정 (−2)
+      <span class="inline-block h-3 w-6 rounded-sm" style="background:#ef8a62"></span>약한 부정 (−1)
+      <span class="inline-block h-3 w-6 rounded-sm" style="background:#f7f7f7;border:1px solid #d1d5db"></span>변화 없음 (0)
+      <span class="inline-block h-3 w-6 rounded-sm" style="background:#67a9cf"></span>약한 긍정 (+1)
+      <span class="inline-block h-3 w-6 rounded-sm" style="background:#2166ac"></span>강한 긍정 (+2)
+    </div>
+  </div>
+
+  <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <h3 class="mb-3 text-sm font-semibold text-gray-900">6 카테고리 신호 강도</h3>
+    <canvas id="radar-chart" height="260"></canvas>
+    {% if radar.insufficient|length > 0 %}
+      <div class="mt-2 text-[11px] text-gray-500">insufficient 카테고리는 회색 점선으로 표시됩니다.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+{# ── 6 KPI 카드 ── #}
+<h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">카테고리별 헤드라인</h3>
+<div id="kpi-grid" class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {% for c in kpi_cards %}
+    <a href="{% url 'dashboard:category' c.slug %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+       class="block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow-md">
+      <div class="mb-2 flex items-start justify-between">
+        <div>
+          <div class="text-xs text-gray-500">{{ c.category }}</div>
+          <div class="text-sm font-semibold text-gray-900">{{ c.headline_metric }}</div>
+        </div>
+        <span class="signal-badge sig-{{ c.main_signal }}">{{ c.main_signal }}</span>
+      </div>
+      <div class="my-3">
+        {% if c.current_value is None %}
+          <span class="text-2xl font-bold text-gray-400">—</span>
+        {% else %}
+          <span class="text-2xl font-bold text-gray-900">
+            {{ c.current_value|floatformat:"-2"|intcomma }}
+          </span>
+          <span class="ml-1 text-xs text-gray-500">{{ c.unit }}</span>
+        {% endif %}
+        {% if c.main_change_pct is not None %}
+          <span class="ml-2 text-sm font-semibold {% if c.main_change_pct >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+            {% if c.main_change_pct >= 0 %}▲{% else %}▼{% endif %}{{ c.main_change_pct|floatformat:2 }}%
+          </span>
+        {% endif %}
+      </div>
+      <dl class="mt-3 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-gray-100 pt-3 text-[11px]">
+        {% for mk, label in controls.options.mode %}
+          {% with mv=c.modes|get_item:mk %}
+            <dt class="text-gray-500">{{ label }}</dt>
+            <dd class="text-right font-medium {% if mv.disabled %}text-gray-300{% elif mv.change_pct is None %}text-gray-300{% elif mv.change_pct >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+              {% if mv.disabled %}—{% elif mv.change_pct is None %}—{% else %}{{ mv.change_pct|floatformat:2 }}%{% endif %}
+            </dd>
+          {% endwith %}
+        {% endfor %}
+      </dl>
+    </a>
+  {% endfor %}
+</div>
+
+{# ── Top N (행정동×카테고리) ── #}
+<div class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+  <div class="mb-3 flex items-center justify-between">
+    <h3 class="text-sm font-semibold text-gray-900">주요 변화 지표 Top <span id="top-n-label">10</span> <span class="text-xs font-normal text-gray-500">· 시군 합계 17 지표 정렬</span></h3>
+    <div class="inline-flex rounded-lg border border-gray-200 text-xs">
+      <button type="button" data-topn="5"  class="topn-toggle px-3 py-1">Top 5</button>
+      <button type="button" data-topn="10" class="topn-toggle px-3 py-1 bg-brand-50 text-brand-700 font-semibold">Top 10</button>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="border-b border-gray-200 text-left text-xs uppercase tracking-wider text-gray-500">
+        <tr>
+          <th class="px-2 py-2">#</th>
+          <th class="px-2 py-2">카테고리</th>
+          <th class="px-2 py-2">지표</th>
+          <th class="px-2 py-2 text-right">현재값</th>
+          <th class="px-2 py-2 text-right">변화율</th>
+          <th class="px-2 py-2">신호</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in top_n %}
+          <tr class="border-b border-gray-100 topn-row" data-rank="{{ r.rank }}">
+            <td class="px-2 py-2 text-gray-500">{{ r.rank }}</td>
+            <td class="px-2 py-2 text-gray-700">{{ r.category }}</td>
+            <td class="px-2 py-2 text-gray-900">
+              {{ r.metric }}
+              {% if r.is_headline %}<span class="ml-1 rounded bg-brand-50 px-1.5 py-0.5 text-[9px] font-semibold text-brand-700">헤드라인</span>{% endif %}
+            </td>
+            <td class="px-2 py-2 text-right text-gray-900">{{ r.current|floatformat:"-2"|intcomma }} <span class="text-[11px] text-gray-500">{{ r.unit }}</span></td>
+            <td class="px-2 py-2 text-right font-semibold {% if r.change_pct >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+              {% if r.change_pct >= 0 %}+{% endif %}{{ r.change_pct|floatformat:2 }}%
+            </td>
+            <td class="px-2 py-2"><span class="signal-badge sig-{{ r.signal_v4 }}">{{ r.signal_v4 }}</span></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="px-2 py-6 text-center text-gray-400">변화 지표 없음 (분포 부족)</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── 종합 보고서 버튼 ── #}
+<div class="mb-6 flex items-center justify-between rounded-2xl border border-brand-100 bg-brand-25 p-5">
+  <div>
+    <div class="text-sm font-semibold text-brand-900">종합 보고서 ({{ app_mode }} 모드)</div>
+    <div class="mt-1 text-xs text-brand-800">기준월 {{ controls.current.crym|slice:":4" }}.{{ controls.current.crym|slice:"4:" }} · 6 카테고리 LLM 인사이트 (사전 생성 결과 조회)</div>
+  </div>
+  <a href="{% url 'dashboard:overall_report' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+     class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600">
+    종합 보고서 {{ report_label }}
+  </a>
+</div>
+
+{# ── 데이터 전달 ── #}
+{{ radar|json_script:"radar-data" }}
+{{ choropleth|json_script:"choropleth-data" }}
+
+{% endblock %}
+
+{% block footer %}
+© Suwon Signal Report · 데이터 구간: {{ data_range_label }} (전체: 자동 확장)
+{% endblock %}
+
+{% block extra_body_end %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="{% static 'js/main_dashboard.js' %}"></script>
+{% endblock %}

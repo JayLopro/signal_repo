@@ -35,11 +35,11 @@ cd signal_repo
 
 ## 2. 가상환경 생성 + 의존성 설치
 
-PA에서는 Python 3.10 기준으로 진행 (3.11도 가능).
+PA에서는 Python 3.11 기준으로 진행 (3.1x도 가능).
 
 ```bash
-# Python 3.10 기준
-python3.10 -m venv ~/.virtualenvs/signal_repo
+# Python 3.11 기준
+python3.11 -m venv ~/.virtualenvs/signal_repo
 source ~/.virtualenvs/signal_repo/bin/activate
 
 cd ~/signal_repo
@@ -107,17 +107,17 @@ PA 좌측 메뉴 → **Web** → **Add a new web app** → 안내에 따라 **Ma
 
 ### 5-1. Source code
 ```
-/home/<USERNAME>/signal_repo
+/home/jaylo/signal_repo
 ```
 
 ### 5-2. Working directory
 ```
-/home/<USERNAME>/signal_repo
+/home/jaylo/signal_repo
 ```
 
 ### 5-3. Virtualenv
 ```
-/home/<USERNAME>/.virtualenvs/signal_repo
+/home/jaylo/.virtualenvs/signal_repo
 ```
 
 ### 5-4. WSGI configuration file
@@ -131,7 +131,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-PROJECT_DIR = Path("/home/<USERNAME>/signal_repo")
+PROJECT_DIR = Path("/home/jaylo/signal_repo")
 
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
@@ -152,7 +152,7 @@ Static files 섹션에서 두 줄 추가:
 
 | URL | Directory |
 |---|---|
-| `/static/` | `/home/<USERNAME>/signal_repo/staticfiles` |
+| `/static/` | `/home/jaylo/signal_repo/staticfiles` |
 
 > Tailwind는 CDN을 쓰므로 `/static/` 매핑이 비어있어도 200은 뜹니다. 그래도 향후를 위해 미리 잡아두는 게 좋습니다.
 
@@ -164,7 +164,7 @@ Static files 섹션에서 두 줄 추가:
 
 브라우저에서 접속:
 ```
-https://<USERNAME>.pythonanywhere.com
+https://jaylo.pythonanywhere.com
 ```
 
 **예상 결과:**

@@ -1,2 +1,19 @@
 Django>=4.2,<5.0
 python-dotenv>=1.0
+
+# Phase 0~1 EDA / 마트 적재
+pandas>=2.0
+numpy>=1.24
+scipy>=1.11
+openpyxl>=3.1
+
+# Phase 4 LLM (Gemini + GPT-4o)
+google-generativeai>=0.5
+openai>=1.30
+requests>=2.31
+
+# 테스트 / E2E
+pytest>=8.0
+pytest-django>=4.7
+playwright>=1.40
+pytest-playwright>=0.4

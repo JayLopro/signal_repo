@@ -52,40 +52,18 @@
               <span class="text-base">📊</span> 대시보드
             </a>
           </li>
+          {% for c in sidebar_categories %}
           <li>
-            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-              <span class="text-base">🚶</span> 유동생활인구
-              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+            <a href="{% url 'dashboard:category' c.slug %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium {% if active == c.slug %}bg-brand-50 text-brand-700{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+              <span class="text-base">{{ c.icon }}</span> {{ c.name }}
             </a>
           </li>
-          <li>
-            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-              <span class="text-base">🔁</span> 생활이동
-              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-              <span class="text-base">🏪</span> 가맹점
-              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-              <span class="text-base">🛒</span> 소비자
-              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-              <span class="text-base">🏢</span> 기업신용
-              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
-              <span class="text-base">👤</span> 개인신용
-              <span class="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Soon</span>
+          {% endfor %}
+          <li class="mt-2 border-t border-gray-100 pt-2">
+            <a href="{% url 'dashboard:compare' %}"
+               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium {% if active == 'compare' %}bg-brand-50 text-brand-700{% else %}text-gray-600 hover:bg-gray-50{% endif %}">
+              <span class="text-base">⚖️</span> 신호체계 비교
             </a>
           </li>
           {% endwith %}
@@ -116,11 +94,12 @@
       </main>
 
       <footer class="border-t border-gray-200 bg-white px-6 py-3 text-center text-xs text-gray-400">
-        © Suwon Signal Report · powered by Django + Tailwind + Chart.js (예정)
+        {% block footer %}© Suwon Signal Report · powered by Django + Tailwind + Chart.js{% endblock %}
       </footer>
     </div>
 
   </div>
 
+  {% block extra_body_end %}{% endblock %}
 </body>
 </html>

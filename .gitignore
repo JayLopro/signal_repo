@@ -17,9 +17,12 @@ staticfiles/
 media/
 
 # Env / secrets
+# .env.dev / .env.staging / .env (실 키 포함) — 무시
+# .env.example / .env.production.example — 템플릿이므로 추적
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # IDE / OS
 .idea/
@@ -32,10 +35,16 @@ data/csv/
 data/sqlite3/
 data/수원시_background.json
 data/sample/
+data/대시보드_데이터_정의서/
+
 
 # Spec / planning artifacts
 .omc/
 .claude/
+CLAUDE.md
+suwon_signal_rebuild_answers.md
+suwon_signal_django_rebuild_plan.md
+DEPLOY_PYTHONANYWHERE.md
 
 # Reference docs (xls)
 API개발명세서_*.xls

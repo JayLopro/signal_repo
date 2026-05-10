@@ -9,7 +9,19 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / ".env")
+# APP_MODE 우선순위: 환경변수 → .env.<mode> → .env (fallback)
+# - test: 로컬 개발 (LLM X)
+# - staging: 로컬 LLM 검증 / PA 1차 배포 (LLM 호출은 ENABLE_LLM_ON_PA로 추가 차단)
+# - production: 향후 운영
+APP_MODE = os.getenv("APP_MODE", "test").lower()
+
+_mode_env_file = BASE_DIR / f".env.{APP_MODE}"
+if _mode_env_file.exists():
+    load_dotenv(_mode_env_file, override=False)
+load_dotenv(BASE_DIR / ".env", override=False)
+
+# decisions.md §7 — PA 배포 시 반드시 false. 누락/true이더라도 LLM 호출 가드(C4)에서 차단.
+ENABLE_LLM_ON_PA = os.getenv("ENABLE_LLM_ON_PA", "false").lower() == "true"
 
 
 SECRET_KEY = os.getenv(
@@ -33,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
     "dashboard",
 ]
 
@@ -59,6 +72,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "dashboard.context_processors.sidebar",
             ],
         },
     },
@@ -73,6 +87,10 @@ DATABASES = {
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+# 데이터마트 (읽기전용) — Phase 1에서 빌드. decisions.md §7
+MART_DB_PATH = BASE_DIR / "data" / "sqlite3" / "suwon_4111.sqlite3"
+ADMDONG_TOPOJSON_PATH = BASE_DIR / "data" / "수원시_background.json"
 
 
 AUTH_PASSWORD_VALIDATORS = [

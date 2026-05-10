@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load dict_filters %}
+
+{% block title %}종합 보고서 · 수원시 시그널 리포트{% endblock %}
+
+{% block extra_head %}
+<style>
+  .signal-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .5rem; border-radius:9999px; font-size:.7rem; font-weight:600; border:1px solid; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="mb-4 flex items-center gap-2 text-xs text-gray-500">
+  <a href="{% url 'dashboard:index' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+     class="rounded px-2 py-1 hover:bg-gray-100">← 메인 대시보드</a>
+  <span>/</span><span class="text-gray-700">종합 보고서</span>
+</div>
+
+{# ── 상단 컨트롤 (기준월·LLM 모델만 의미 — 신호체계·윈도우·분석모드는 캐시 키에 미포함) ── #}
+<form method="get" class="mb-6 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">기준월</span>
+      <select name="crym" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for opt in controls.options.crym %}<option value="{{ opt.value }}" {% if opt.value == controls.current.crym %}selected{% endif %}>{{ opt.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block opacity-60">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">분석모드 <span class="text-[10px]">(캐시 키 미포함)</span></span>
+      <select name="mode" class="w-full rounded-lg border-gray-200 bg-gray-50 text-sm" disabled>
+        {% for k, label in controls.options.mode %}<option value="{{ k }}" {% if k == controls.current.mode %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block opacity-60">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">신호체계 <span class="text-[10px]">(캐시 키 미포함)</span></span>
+      <select name="system" class="w-full rounded-lg border-gray-200 bg-gray-50 text-sm" disabled>
+        {% for k, label in controls.options.system %}<option value="{{ k }}" {% if k == controls.current.system %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block opacity-60">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">분포 윈도우 <span class="text-[10px]">(캐시 키 미포함)</span></span>
+      <select name="window" class="w-full rounded-lg border-gray-200 bg-gray-50 text-sm" disabled>
+        {% for opt in controls.options.window %}<option value="{{ opt.value }}" {% if opt.value == controls.current.window %}selected{% endif %}>{{ opt.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-amber-600">LLM 모델</span>
+      <select name="llm_model" class="w-full rounded-lg border-amber-300 bg-amber-50 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.llm_model %}<option value="{{ k }}" {% if k == controls.current.llm_model %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+</form>
+
+{# ── 종합 보고서 본문 ── #}
+<div class="rounded-2xl border border-brand-100 bg-white p-6 shadow-sm">
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+    <div>
+      <div class="text-xs uppercase tracking-wider text-brand-700">시군 4111 · 수원시</div>
+      <h2 class="mt-1 text-lg font-semibold text-gray-900">{{ controls.current.crym|slice:":4" }}.{{ controls.current.crym|slice:"4:" }} 종합 보고서</h2>
+      <div class="text-xs text-gray-500">모델: {{ llm_model_id }} · 프롬프트: v1 · {{ app_mode }} 모드</div>
+    </div>
+    <span class="rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700">사전 생성 결과 조회</span>
+  </div>
+
+  {% if llm_insight %}
+    <article class="prose prose-sm max-w-none text-gray-800">
+      <p class="text-base font-medium leading-relaxed text-gray-900">{{ llm_insight.response.summary }}</p>
+
+      {% if llm_insight.response.drivers %}
+        <h4 class="mt-5 text-sm font-semibold uppercase tracking-wider text-brand-700">변화 동인 (cross-category)</h4>
+        <ul class="list-disc pl-5 text-sm leading-relaxed">
+          {% for d in llm_insight.response.drivers %}<li>{{ d }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if llm_insight.response.risks %}
+        <h4 class="mt-5 text-sm font-semibold uppercase tracking-wider text-amber-700">주의 신호</h4>
+        <ul class="list-disc pl-5 text-sm leading-relaxed">
+          {% for r in llm_insight.response.risks %}<li>{{ r }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if llm_insight.response.policy_hint %}
+        <div class="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span class="font-semibold">정책 시사점:</span> {{ llm_insight.response.policy_hint }}
+        </div>
+      {% endif %}
+
+      <div class="mt-4 flex items-center justify-between text-[11px] text-gray-500">
+        <span>신뢰도 confidence = {{ llm_insight.response.confidence|floatformat:2 }}</span>
+        <span>생성 {{ llm_insight.created_at }}{% if llm_insight.has_unknown_numbers %} · ⚠ 미허가 수치 검출{% endif %}</span>
+      </div>
+    </article>
+  {% else %}
+    <div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-sm leading-relaxed text-gray-600">
+      <div class="mb-2 font-semibold text-gray-800">📝 사전 생성 결과 없음</div>
+      <p>해당 기준월·모델 조합의 종합 보고서가 아직 생성되지 않았습니다. 로컬 staging에서 다음 명령으로 생성하세요:</p>
+      <pre class="mt-3 overflow-x-auto rounded bg-gray-900 px-3 py-2 text-[11px] text-gray-100">{{ generate_command }}</pre>
+      <ul class="mt-3 list-disc pl-5 text-xs">
+        <li>PA 1차 배포: <code class="rounded bg-gray-100 px-1">ENABLE_LLM_ON_PA=false</code>로 LLM 호출 차단. 사전 생성 결과만 조회.</li>
+        <li>로컬 staging: <code class="rounded bg-gray-100 px-1">APP_MODE=staging</code> + 키(<code class="rounded bg-gray-100 px-1">GOOGLE_API_KEY</code>/<code class="rounded bg-gray-100 px-1">OPENAI_API_KEY</code>)로 생성.</li>
+        <li>캐시 키: 시군·기준월·모델·프롬프트 버전 (decisions.md §7).</li>
+      </ul>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block footer %}
+© Suwon Signal Report · 데이터 구간: {{ data_range_label }} · 종합 보고서
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% load static dict_filters humanize %}
+
+{% block title %}{{ category }} · 카테고리 상세 · 수원시 시그널 리포트{% endblock %}
+
+{% block extra_head %}
+<style>
+  .signal-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .5rem; border-radius:9999px; font-size:.7rem; font-weight:600; border:1px solid; }
+  .sig-strong_positive { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+  .sig-weak_positive   { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
+  .sig-no_change       { background:#f3f4f6; color:#4b5563; border-color:#d1d5db; }
+  .sig-weak_negative   { background:#ffedd5; color:#9a3412; border-color:#fed7aa; }
+  .sig-strong_negative { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+  .sig-insufficient    { background:#f3f4f6; color:#9ca3af; border:1px dashed #d1d5db; }
+  .raw-badge { display:inline-block; padding:.05rem .375rem; border-radius:.25rem; font-size:.625rem; font-weight:600; background:#fef3c7; color:#92400e; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── 뒤로 가기 ── #}
+<div class="mb-4 flex items-center gap-2 text-xs text-gray-500">
+  <a href="{% url 'dashboard:index' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+     class="rounded px-2 py-1 hover:bg-gray-100">← 메인 대시보드</a>
+  <span>/</span>
+  <span class="text-gray-700">{{ category }}</span>
+</div>
+
+{# ── 상단 컨트롤 바 ── #}
+<form method="get" class="mb-6 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">기준월</span>
+      <select name="crym" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for opt in controls.options.crym %}<option value="{{ opt.value }}" {% if opt.value == controls.current.crym %}selected{% endif %}>{{ opt.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">분석모드</span>
+      <select name="mode" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.mode %}<option value="{{ k }}" {% if k == controls.current.mode %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">신호체계</span>
+      <select name="system" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.system %}<option value="{{ k }}" {% if k == controls.current.system %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">분포 윈도우</span>
+      <select name="window" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for opt in controls.options.window %}<option value="{{ opt.value }}" {% if opt.value == controls.current.window %}selected{% endif %} {% if opt.disabled %}disabled{% endif %}>{{ opt.label }}{% if opt.disabled %} (장기 비활성){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-amber-600">LLM 모델</span>
+      <select name="llm_model" class="w-full rounded-lg border-amber-300 bg-amber-50 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.llm_model %}<option value="{{ k }}" {% if k == controls.current.llm_model %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  {% if controls.window_disabled %}
+    <div class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">⚠ 장기 모드 + 12개월 윈도우 조합은 비활성화 (decisions.md §4).</div>
+  {% endif %}
+</form>
+
+{# ── 헤드라인 KPI 큰 박스 ── #}
+<div class="mb-6 rounded-2xl border border-brand-100 bg-gradient-to-r from-brand-25 to-white p-6 shadow-sm">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <div class="text-xs text-brand-700">{{ category }} · 헤드라인</div>
+      <div class="mt-1 text-lg font-semibold text-gray-900">{{ kpi.headline_metric }}</div>
+      <div class="mt-2 flex items-end gap-3">
+        {% if kpi.current_value is None %}
+          <span class="text-4xl font-bold text-gray-400">—</span>
+        {% else %}
+          <span class="text-4xl font-bold text-gray-900">{{ kpi.current_value|floatformat:"-2"|intcomma }}</span>
+          <span class="text-sm text-gray-500">{{ kpi.unit }}</span>
+        {% endif %}
+        {% if kpi.main_change_pct is not None %}
+          <span class="ml-2 text-base font-semibold {% if kpi.main_change_pct >= 0 %}text-blue-600{% else %}text-red-600{% endif %}">
+            {% if kpi.main_change_pct >= 0 %}▲{% else %}▼{% endif %}{{ kpi.main_change_pct|floatformat:2 }}%
+          </span>
+        {% endif %}
+        <span class="signal-badge sig-{{ kpi.main_signal }}">{{ kpi.main_signal }}</span>
+      </div>
+    </div>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+      {% for mk, label in controls.options.mode %}
+        {% with mv=kpi.modes|get_item:mk %}
+          <div>
+            <dt class="text-gray-500">{{ label }}</dt>
+            <dd class="font-semibold {% if mv.disabled %}text-gray-300{% elif mv.change_pct is None %}text-gray-300{% elif mv.change_pct >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+              {% if mv.disabled %}— (비활성){% elif mv.change_pct is None %}—{% else %}{{ mv.change_pct|floatformat:2 }}%{% endif %}
+            </dd>
+          </div>
+        {% endwith %}
+      {% endfor %}
+    </dl>
+  </div>
+</div>
+
+{# ── 시계열 (단독) ── #}
+<div class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+  <h3 class="mb-3 text-sm font-semibold text-gray-900">헤드라인 시계열 <span class="text-xs font-normal text-gray-500">· 12개월 이동평균 ± 1σ 밴드</span></h3>
+  <canvas id="ts-chart" height="120"></canvas>
+</div>
+
+{# ── 단기·장기 모멘텀 시계열 + YoY 산점도 ── #}
+<div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+
+  <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <h3 class="text-sm font-semibold text-gray-900">
+        단기·장기 모멘텀 시계열 <span class="text-xs font-normal text-gray-500">· {{ trend_series.scope_label }}</span>
+      </h3>
+      <form method="get" class="inline-flex items-center gap-1">
+        {# 기존 컨트롤 파라미터 유지 #}
+        {% for key, val in request.GET.items %}
+          {% if key != 'admdong' %}<input type="hidden" name="{{ key }}" value="{{ val }}">{% endif %}
+        {% endfor %}
+        <label class="text-[11px] text-gray-500">집계:</label>
+        <select name="admdong" class="rounded-lg border-gray-300 text-xs" onchange="this.form.submit()">
+          {% for a in admdong_options %}
+            <option value="{{ a.cd }}" {% if a.cd == admdong_selected %}selected{% endif %}>{{ a.nm }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    {% if trend_series.long_disabled %}
+      <div class="mb-2 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-800">⚠ 장기(12M) 라인은 분포 윈도우 12개월 비활성 조합으로 표시 안 됨</div>
+    {% endif %}
+    <canvas id="trend-chart" height="220"></canvas>
+    <div class="mt-2 text-[11px] text-gray-500">범례 클릭으로 단기/장기 라인 토글 가능. 0% 기준선은 회색 가이드.</div>
+  </div>
+
+  <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <h3 class="mb-3 text-sm font-semibold text-gray-900">YoY 산점도 <span class="text-xs font-normal text-gray-500">· 전년동월(x) vs 올해동월(y) · 26쌍 · 45°선</span></h3>
+    <canvas id="yoy-chart" height="220"></canvas>
+  </div>
+
+</div>
+
+{# ── 차원분해 ── #}
+<div class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+  <div class="mb-3 flex items-center justify-between">
+    <h3 class="text-sm font-semibold text-gray-900">1차 차원분해 <span class="text-xs font-normal text-gray-500">· {{ breakdown.label }}</span></h3>
+    <span class="text-[11px] text-gray-500">기준월 {{ controls.current.crym|slice:":4" }}.{{ controls.current.crym|slice:"4:" }}</span>
+  </div>
+
+  <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {% for it in breakdown.items %}
+      <div class="rounded-xl border border-gray-200 p-3">
+        <div class="flex items-start justify-between">
+          <div class="text-sm font-semibold text-gray-900">{{ it.name }}
+            {% if it.raw_badge %}<span class="raw-badge ml-1">1차 미보정</span>{% endif %}
+          </div>
+          <span class="signal-badge sig-{{ it.signal_v4 }}">{{ it.signal_v4 }}</span>
+        </div>
+        <div class="mt-2 text-xs text-gray-500">{{ it.metric }}</div>
+        <div class="mt-1">
+          {% if it.latest_value is None %}
+            <span class="text-lg font-bold text-gray-400">—</span>
+          {% else %}
+            <span class="text-lg font-bold text-gray-900">{{ it.latest_value|floatformat:"-2"|intcomma }}</span>
+            <span class="text-[10px] text-gray-500">{{ it.unit }}</span>
+          {% endif %}
+          {% if it.change_pct is not None %}
+            <span class="ml-1 text-xs font-semibold {% if it.change_pct >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+              {% if it.change_pct >= 0 %}+{% endif %}{{ it.change_pct|floatformat:2 }}%
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <canvas id="breakdown-chart" height="180"></canvas>
+</div>
+
+{# ── 전체 지표 트리 + LLM 박스 ── #}
+<div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+
+  <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:col-span-1">
+    <h3 class="mb-3 text-sm font-semibold text-gray-900">전체 지표 트리 <span class="text-xs font-normal text-gray-500">· 산정 가능</span></h3>
+    <ul class="space-y-2">
+      {% for m in metric_tree %}
+        <li class="rounded-lg border border-gray-100 p-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-gray-900">{{ m.metric }}</span>
+            <span class="text-[10px] uppercase tracking-wider text-gray-500">{{ m.polarity }}</span>
+          </div>
+          <div class="text-[11px] text-gray-500">{{ m.unit }}</div>
+          <div class="mt-1 text-[11px] leading-relaxed text-gray-600">{{ m.definition }}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-sm lg:col-span-2">
+    <div class="mb-3 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-amber-900">LLM 인사이트 <span class="text-xs font-normal text-amber-700">· {{ llm_model_id }}</span></h3>
+      {% if llm_insight %}
+        <span class="text-[11px] text-amber-700">생성 {{ llm_insight.created_at|truncatechars:19 }}{% if llm_insight.has_unknown_numbers %} · ⚠ 미허가 수치 검출{% endif %}</span>
+      {% else %}
+        <span class="text-[11px] text-amber-700">미생성 — 사전 생성 후 표시</span>
+      {% endif %}
+    </div>
+
+    {% if llm_insight %}
+      <div class="rounded-lg border border-amber-300 bg-white p-4 text-sm leading-relaxed text-gray-800">
+        <p class="font-medium text-gray-900">{{ llm_insight.response.summary }}</p>
+
+        {% if llm_insight.response.drivers %}
+          <div class="mt-3">
+            <div class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">변화 동인</div>
+            <ul class="list-disc pl-5 text-xs leading-relaxed">
+              {% for d in llm_insight.response.drivers %}<li>{{ d }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if llm_insight.response.risks %}
+          <div class="mt-3">
+            <div class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">주의 신호</div>
+            <ul class="list-disc pl-5 text-xs leading-relaxed">
+              {% for r in llm_insight.response.risks %}<li>{{ r }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if llm_insight.response.policy_hint %}
+          <div class="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <span class="font-semibold">정책 시사점:</span> {{ llm_insight.response.policy_hint }}
+          </div>
+        {% endif %}
+
+        <div class="mt-3 text-[11px] text-gray-500">신뢰도 confidence = {{ llm_insight.response.confidence|floatformat:2 }}</div>
+      </div>
+    {% else %}
+      <div class="rounded-lg border border-dashed border-amber-300 bg-white/50 p-4 text-sm leading-relaxed text-amber-900">
+        <div class="mb-2 font-semibold">📝 사전 생성 대기</div>
+        <p>{{ llm_placeholder }}</p>
+        <ul class="mt-3 list-disc pl-5 text-xs text-amber-800/80">
+          <li><b>summary</b>: 카테고리 종합 요약 (1~2문장)</li>
+          <li><b>drivers</b>: 변화 동인 후보 3~5</li>
+          <li><b>risks</b>: 주의 신호</li>
+          <li><b>policy_hint</b>: 정책 시사점 (일반론)</li>
+          <li><b>confidence</b>: 데이터 누적·표본 기반 신뢰도</li>
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{# ── 데이터 전달 ── #}
+{{ timeseries|json_script:"ts-data" }}
+{{ trend_series|json_script:"trend-data" }}
+{{ yoy_scatter|json_script:"yoy-data" }}
+{{ breakdown|json_script:"bd-data" }}
+
+{% endblock %}
+
+{% block footer %}
+© Suwon Signal Report · 데이터 구간: {{ data_range_label }} (전체: 자동 확장) · {{ category }}
+{% endblock %}
+
+{% block extra_body_end %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script src="{% static 'js/category_detail.js' %}"></script>
+<script src="{% static 'js/charts/yoy_scatter.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load dict_filters %}
+
+{% block title %}신호체계 비교 · 수원시 시그널 리포트{% endblock %}
+
+{% block extra_head %}
+<style>
+  .signal-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .5rem; border-radius:9999px; font-size:.7rem; font-weight:600; border:1px solid; }
+  .sig-strong_positive { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+  .sig-weak_positive   { background:#e0f2fe; color:#075985; border-color:#bae6fd; }
+  .sig-no_change       { background:#f3f4f6; color:#4b5563; border-color:#d1d5db; }
+  .sig-weak_negative   { background:#ffedd5; color:#9a3412; border-color:#fed7aa; }
+  .sig-strong_negative { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+  .sig-insufficient    { background:#f3f4f6; color:#9ca3af; border:1px dashed #d1d5db; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# ── 컨트롤 바 (신호체계 셀렉터는 비교 표 안에 있어서 컨트롤에선 의미 없으나 일관성 위해 표시) ── #}
+<form method="get" class="mb-6 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">기준월</span>
+      <select name="crym" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for opt in controls.options.crym %}<option value="{{ opt.value }}" {% if opt.value == controls.current.crym %}selected{% endif %}>{{ opt.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">분석모드</span>
+      <select name="mode" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.mode %}<option value="{{ k }}" {% if k == controls.current.mode %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block opacity-60">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">신호체계 <span class="text-[10px]">(비교 페이지에선 무시)</span></span>
+      <select name="system" class="w-full rounded-lg border-gray-200 bg-gray-50 text-sm" disabled>
+        {% for k, label in controls.options.system %}<option value="{{ k }}" {% if k == controls.current.system %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">분포 윈도우</span>
+      <select name="window" class="w-full rounded-lg border-gray-300 text-sm" onchange="this.form.submit()">
+        {% for opt in controls.options.window %}<option value="{{ opt.value }}" {% if opt.value == controls.current.window %}selected{% endif %} {% if opt.disabled %}disabled{% endif %}>{{ opt.label }}{% if opt.disabled %} (장기 비활성){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-amber-600">LLM 모델</span>
+      <select name="llm_model" class="w-full rounded-lg border-amber-300 bg-amber-50 text-sm" onchange="this.form.submit()">
+        {% for k, label in controls.options.llm_model %}<option value="{{ k }}" {% if k == controls.current.llm_model %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+</form>
+
+{# ── 비교 표 ── #}
+<div class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+  <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+    <h3 class="text-sm font-semibold text-gray-900">6 카테고리 × 5 신호체계 매트릭스 <span class="text-xs font-normal text-gray-500">· 기준월 {{ controls.current.crym|slice:":4" }}.{{ controls.current.crym|slice:"4:" }}</span></h3>
+    <span class="text-[11px] text-gray-500">분석모드: {% for k, lbl in controls.options.mode %}{% if k == controls.current.mode %}{{ lbl }}{% endif %}{% endfor %} · 윈도우: {{ controls.current.window }}개월</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="border-b border-gray-200 text-left text-xs uppercase tracking-wider text-gray-500">
+        <tr>
+          <th class="sticky left-0 bg-white px-3 py-2">카테고리 / 헤드라인</th>
+          {% for k, label in system_columns %}
+            <th class="px-3 py-2">{{ label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr class="border-b border-gray-100">
+            <td class="sticky left-0 bg-white px-3 py-2.5 align-top">
+              <div>
+                <a href="{% url 'dashboard:category' row.slug %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+                   class="font-medium text-gray-900 hover:text-brand-700">{{ row.category }}</a>
+                <span class="ml-1 text-[10px] uppercase tracking-wider text-gray-400">{{ row.polarity }}</span>
+              </div>
+              <div class="text-[11px] text-gray-500">{{ row.headline_metric }}</div>
+            </td>
+            {% for cell in row.cells %}
+              <td class="px-3 py-2.5 align-top">
+                <span class="signal-badge sig-{{ cell.signal_v4 }}">{{ cell.signal_v4 }}</span>
+                <div class="mt-1 text-[11px] {% if cell.change_pct is None %}text-gray-300{% elif cell.change_pct >= 0 %}text-blue-700{% else %}text-red-700{% endif %}">
+                  {% if cell.change_pct is None %}—{% else %}{% if cell.change_pct >= 0 %}+{% endif %}{{ cell.change_pct|floatformat:2 }}%{% endif %}
+                </div>
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── 신호체계별 캡션 ── #}
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  {% for k, label in system_columns %}
+    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div class="text-xs font-semibold uppercase tracking-wider text-brand-700">{{ label }}</div>
+      <div class="mt-1 text-xs leading-relaxed text-gray-600">{{ captions|get_item:k }}</div>
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block footer %}
+© Suwon Signal Report · 데이터 구간: {{ data_range_label }} (전체: 자동 확장) · 신호체계 비교
+{% endblock %}
